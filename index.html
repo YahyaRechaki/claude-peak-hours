@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Claude Peak Hours — Live Status</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --off:    #0a0f1a;
+    --surface:#111827;
+    --card:   #151f30;
+    --border: rgba(255,255,255,0.07);
+    --green:  #00e5a0;
+    --red:    #ff4d6d;
+    --amber:  #ffb830;
+    --blue:   #4a9eff;
+    --muted:  rgba(255,255,255,0.38);
+    --text:   #f0f4ff;
+    --mono:   'JetBrains Mono', monospace;
+    --sans:   'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--off);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(74,158,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74,158,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 680px; }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .logo {
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: clamp(28px, 6vw, 46px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  h1 span { color: var(--blue); }
+  .sub {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    font-family: var(--mono);
+  }
+
+  /* ── STATUS CARD ── */
+  .status-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 28px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.6s;
+  }
+  .status-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent-bar, var(--green));
+    border-radius: 20px 20px 0 0;
+    transition: background 0.6s;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .pulse-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--dot-color, var(--green));
+    box-shadow: 0 0 0 0 var(--dot-color, var(--green));
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 var(--dot-color, rgba(0,229,160,0.6)); }
+    70%  { box-shadow: 0 0 0 10px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .status-label {
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .status-value {
+    font-size: clamp(22px, 5vw, 32px);
+    font-weight: 800;
+    margin-top: 4px;
+    color: var(--dot-color, var(--green));
+    transition: color 0.6s;
+  }
+  .status-detail {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* ── TIME BLOCKS ── */
+  .time-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .time-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+  }
+  .time-block .tz {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .time-block .window {
+    font-family: var(--mono);
+    font-size: clamp(12px, 2.5vw, 15px);
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    margin-top: 24px;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .bar-bg {
+    background: var(--surface);
+    border-radius: 99px;
+    height: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--dot-color, var(--green));
+    transition: width 1s linear, background 0.6s;
+    width: 0%;
+  }
+
+  /* ── COUNTDOWN ── */
+  .countdown-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .countdown-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+  }
+  .countdown-value {
+    font-size: clamp(28px, 7vw, 42px);
+    font-weight: 800;
+    font-family: var(--mono);
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .countdown-value span { color: var(--blue); font-size: 0.5em; margin-left: 3px; }
+
+  /* ── INFO CARD ── */
+  .info-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+  }
+  .info-card h3 {
+    font-size: 14px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+  }
+  .info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .info-row .text { color: rgba(255,255,255,0.7); line-height: 1.5; }
+  .info-row .text strong { color: var(--text); }
+
+  /* ── SOURCE ── */
+  .source {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.8;
+  }
+  .source a { color: var(--blue); text-decoration: none; }
+  .source a:hover { text-decoration: underline; }
+
+  /* ── CLOCK ── */
+  .live-clock {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .live-clock span { color: var(--text); }
+
+  /* ── WEEKEND NOTICE ── */
+  .weekend-badge {
+    display: inline-block;
+    background: rgba(74,158,255,0.12);
+    border: 1px solid rgba(74,158,255,0.3);
+    color: var(--blue);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 99px;
+    margin-top: 8px;
+  }
+
+  @media (max-width: 480px) {
+    .time-grid { grid-template-columns: 1fr 1fr; }
+    .countdown-card { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">anthropic · claude · peak hours</div>
+    <h1>Is Claude <span id="headingWord">peak</span> right now?</h1>
+    <div class="sub" id="localTz">—</div>
+  </header>
+
+  <div class="live-clock">UTC now: <span id="utcClock">—</span> &nbsp;|&nbsp; Local: <span id="localClock">—</span></div>
+
+  <!-- STATUS CARD -->
+  <div class="status-card" id="statusCard">
+    <div class="status-row">
+      <div class="pulse-dot" id="pulseDot"></div>
+      <div>
+        <div class="status-label">Current status</div>
+        <div class="status-value" id="statusValue">Checking…</div>
+        <div class="status-detail" id="statusDetail"> </div>
+        <div id="weekendBadge"></div>
+      </div>
+    </div>
+
+    <div class="time-grid">
+      <div class="time-block">
+        <div class="tz">Pacific (PT)</div>
+        <div class="window">05:00 – 11:00</div>
+      </div>
+      <div class="time-block">
+        <div class="tz">UTC / GMT</div>
+        <div class="window">13:00 – 19:00</div>
+      </div>
+      <div class="time-block">
+        <div class="tz" id="yourTzLabel">Your time</div>
+        <div class="window" id="yourWindow">—</div>
+      </div>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap" style="display:none">
+      <div class="progress-label">
+        <span id="progressLeft">Peak start</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" id="barFill"></div></div>
+    </div>
+  </div>
+
+  <!-- COUNTDOWN -->
+  <div class="countdown-card">
+    <div>
+      <div class="countdown-label" id="countdownLabel">Time until peak</div>
+      <div class="countdown-value" id="countdownValue">—</div>
+    </div>
+    <div style="text-align:right">
+      <div class="countdown-label">Session limits</div>
+      <div style="font-family:var(--mono);font-size:14px;color:rgba(255,255,255,0.6)">
+        5-hour window<br>depletes faster in peak
+      </div>
+    </div>
+  </div>
+
+  <!-- INFO -->
+  <div class="info-card">
+    <h3>What this means for you</h3>
+    <div class="info-row">
+      <div class="icon">🔴</div>
+      <div class="text"><strong>Peak hours (weekdays)</strong> — your 5-hour session limits are consumed <strong>faster than normal</strong>. Affects free, Pro, and Max plans. ~7% of Pro users will hit limits they normally wouldn't.</div>
+    </div>
+    <div class="info-row">
+      <div class="icon">✅</div>
+      <div class="text"><strong>Off-peak hours & weekends</strong> — session limits deplete at the standard rate. Best time for token-intensive or background jobs.</div>
+    </div>
+    <div class="info-row">
+      <div class="icon">📊</div>
+      <div class="text"><strong>Weekly totals unchanged</strong> — only the distribution across the week changes. Shifting heavy work to off-peak stretches your limits further.</div>
+    </div>
+    <div class="info-row">
+      <div class="icon">💾</div>
+      <div class="text"><strong>Windows notifier available</strong> — get pop-up alerts 10 min before peak starts, at start, and at end. Auto-converts to your timezone.</div>
+    </div>
+  </div>
+
+  <div class="source">
+    Source: official Anthropic announcement ·
+    <a href="https://x.com/trq212/status/2037254607001559305" target="_blank">@trq212 on X</a><br>
+    Data refreshes every 30 seconds · All times auto-convert to your local timezone
+  </div>
+
+</div>
+
+<script>
+  // Peak window in UTC minutes from midnight
+  const PEAK_START_UTC = 13 * 60;      // 13:00 UTC
+  const PEAK_END_UTC   = 19 * 60;      // 19:00 UTC
+  const PEAK_DAYS      = [1,2,3,4,5];  // Mon–Fri
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function utcMinutes(date){
+    return date.getUTCHours() * 60 + date.getUTCMinutes();
+  }
+
+  function formatCountdown(ms){
+    if (ms <= 0) return '00<span>h</span> 00<span>m</span>';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${pad(h)}<span>h</span> ${pad(m)}<span>m</span>`;
+    return `${pad(m)}<span>m</span> ${pad(s)}<span>s</span>`;
+  }
+
+  function localPeakWindow(){
+    const now  = new Date();
+    const base = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0));
+    const startUTC = new Date(base.getTime() + PEAK_START_UTC * 60000);
+    const endUTC   = new Date(base.getTime() + PEAK_END_UTC   * 60000);
+    const fmt = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+    return { start: startUTC, end: endUTC, label: fmt(startUTC) + ' – ' + fmt(endUTC) };
+  }
+
+  function update(){
+    const now     = new Date();
+    const dow     = now.getUTCDay();
+    const nowMin  = utcMinutes(now);
+    const isWeekday = PEAK_DAYS.includes(dow);
+    const isPeak    = isWeekday && nowMin >= PEAK_START_UTC && nowMin < PEAK_END_UTC;
+    const isWarn    = isWeekday && nowMin >= PEAK_START_UTC - 10 && nowMin < PEAK_START_UTC;
+    const isWeekend = !isWeekday;
+
+    // ── Clocks ──────────────────────────────────────────────
+    document.getElementById('utcClock').textContent =
+      pad(now.getUTCHours())+':'+pad(now.getUTCMinutes())+':'+pad(now.getUTCSeconds()) + ' UTC';
+    document.getElementById('localClock').textContent =
+      pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds()) + ' local';
+
+    // ── Timezone & local window ──────────────────────────────
+    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    document.getElementById('localTz').textContent   = 'Your timezone: ' + tzName;
+    document.getElementById('yourTzLabel').textContent = tzName.split('/').pop().replace('_',' ');
+    const win = localPeakWindow();
+    document.getElementById('yourWindow').textContent  = win.label;
+
+    // ── Status colors ────────────────────────────────────────
+    const card = document.getElementById('statusCard');
+    const dot  = document.getElementById('pulseDot');
+    const val  = document.getElementById('statusValue');
+
+    // ── Status heading word ──────────────────────────────────
+    document.getElementById('headingWord').textContent = isPeak ? 'at peak?' : 'at peak?';
+
+    // ── Weekend badge ────────────────────────────────────────
+    const wb = document.getElementById('weekendBadge');
+    wb.innerHTML = isWeekend ? '<span class="weekend-badge">Weekend — off-peak all day</span>' : '';
+
+    if (isPeak) {
+      card.style.setProperty('--accent-bar','var(--red)');
+      dot.style.setProperty('--dot-color','var(--red)');
+      dot.style.background = 'var(--red)';
+      val.style.color      = 'var(--red)';
+      val.textContent      = '🔴 PEAK HOURS ACTIVE';
+      document.getElementById('statusDetail').textContent =
+        'Session limits depleting FASTER — avoid heavy background jobs';
+      document.getElementById('headingWord').textContent = 'at PEAK';
+      document.getElementById('headingWord').style.color = 'var(--red)';
+    } else if (isWarn) {
+      card.style.setProperty('--accent-bar','var(--amber)');
+      dot.style.setProperty('--dot-color','var(--amber)');
+      dot.style.background = 'var(--amber)';
+      val.style.color      = 'var(--amber)';
+      val.textContent      = '⚠️ PEAK HOURS SOON';
+      document.getElementById('statusDetail').textContent =
+        'Peak starts in under 10 minutes — wrap up token-intensive tasks now';
+      document.getElementById('headingWord').textContent = 'going peak?';
+      document.getElementById('headingWord').style.color = 'var(--amber)';
+    } else {
+      card.style.setProperty('--accent-bar','var(--green)');
+      dot.style.setProperty('--dot-color','var(--green)');
+      dot.style.background = 'var(--green)';
+      val.style.color      = 'var(--green)';
+      val.textContent      = '✅ OFF-PEAK — NORMAL LIMITS';
+      document.getElementById('statusDetail').textContent =
+        isWeekend
+          ? 'Weekend: off-peak all day, run heavy jobs freely'
+          : 'Good time for token-intensive or background jobs';
+      document.getElementById('headingWord').textContent = 'at peak?';
+      document.getElementById('headingWord').style.color = 'var(--blue)';
+    }
+
+    // ── Progress bar (only during peak) ──────────────────────
+    const pw = document.getElementById('progressWrap');
+    if (isPeak) {
+      pw.style.display = 'block';
+      const elapsed  = nowMin - PEAK_START_UTC;
+      const total    = PEAK_END_UTC - PEAK_START_UTC;
+      const pct      = Math.min(100, Math.round(elapsed / total * 100));
+      document.getElementById('barFill').style.width = pct + '%';
+      document.getElementById('barFill').style.background = 'var(--red)';
+      document.getElementById('progressLeft').textContent  = 'Peak progress';
+      document.getElementById('progressPct').textContent   = pct + '% elapsed';
+    } else {
+      pw.style.display = 'none';
+    }
+
+    // ── Countdown ────────────────────────────────────────────
+    const cwLabel = document.getElementById('countdownLabel');
+    const cwValue = document.getElementById('countdownValue');
+
+    if (isPeak) {
+      const endMs = win.end - now;
+      cwLabel.textContent = 'Peak ends in';
+      cwValue.innerHTML   = formatCountdown(endMs);
+    } else if (isWarn) {
+      const startMs = win.start - now;
+      cwLabel.textContent = '⚠️ Peak starts in';
+      cwValue.innerHTML   = formatCountdown(startMs);
+    } else {
+      // find next peak start — could be tomorrow if past today's peak
+      let nextStart = new Date(win.start);
+      while (nextStart <= now || !PEAK_DAYS.includes(nextStart.getUTCDay())) {
+        nextStart = new Date(nextStart.getTime() + 24 * 60 * 60 * 1000);
+      }
+      cwLabel.textContent = isWeekend ? 'Next peak (Mon) in' : 'Next peak in';
+      cwValue.innerHTML   = formatCountdown(nextStart - now);
+    }
+  }
+
+  update();
+  setInterval(update, 1000);
+</script>
+</body>
+</html>
