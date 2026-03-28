@@ -2,7 +2,7 @@
 
 > Live status page for Claude AI peak hours — know when your session limits deplete faster.
 
-🌐 **[https://yahyarechaki.github.io/claude-peak-hours/](https://yrechaki.github.io/claude-peak-hours)**
+🌐 **[https://yahyarechaki.github.io/claude-peak-hours/](https://yahyarechaki.github.io/claude-peak-hours)**
 
 ---
 
